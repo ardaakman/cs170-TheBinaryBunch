@@ -4,9 +4,12 @@ import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import networkx as nx
 from starter import *
+import networkx.algorithms.bipartite as bipartite
+
 
 #Import built in libraries
 import random
+from collections import defaultdict
 
 #Algorithm to initially group out the nodes into zero weight groups.
 def find_groups(G):
@@ -154,12 +157,12 @@ def min_cut_2(G, num_teams, diff_param) -> None:
     count = 0
     #Evens parameter ensures, when trying to split into groups the smallest group loop does not give its node to another group if that would put it above the largest
     #group treshold, even if this is the optimal solution.
-    groups = find_groups(G)
+    groups = initial_groups = find_groups(G)
     num_nodes = len(G.nodes)
     #Set upper bound and lower bound based on diff_param
     avg = math.ceil(num_nodes//num_teams)
-    upper_bound_size = num_nodes//num_teams + (num_nodes * diff_param)
-    lower_bound_size = num_nodes//num_teams - (num_nodes * diff_param)
+    upper_bound_size = int(num_nodes//num_teams + math.ceil(num_nodes * diff_param))
+    lower_bound_size = int(num_nodes//num_teams - math.ceil(num_nodes * diff_param))
     #Jai is weird with rough_size.
     largest_group = max(groups, key=len)
     smallest_group = min(groups, key=len)
@@ -170,29 +173,123 @@ def min_cut_2(G, num_teams, diff_param) -> None:
     final_groups = [set() for i in range(num_teams)]
     groups_sorted = sorted(groups, key=len)
     i = 0
+    # print("initial groups", groups_sorted)
+    # print("\n")
     while(i < num_teams):
-        curr_group = groups_sorted[0]
-        if len(final_groups[0]) == 0:
+        if len(groups_sorted) == 0:
             break
+        curr_group = groups_sorted[0]
         if len(curr_group) <= avg:
             final_groups[0].update(curr_group)
             final_groups.sort(key=len)
             groups_sorted.pop(0)
         else:
-            break
-    
+            i += 1
+    # print("After initial addition:", final_groups)
+    # print("\n")
+    #Deal with the rest of the values, using bipartitie matching.
     for group in groups_sorted:
-        G = nx.Graph()
+        final_groups = match_bipartite(G, group, final_groups, upper_bound_size)
+    # print("Final Groups", final_groups)
+    # print("\n Initial Groups", initial_groups)
+
+    for node in G.nodes:
+        for group in final_groups:
+            if node in group:
+                G.nodes[node]['team'] = final_groups.index(group) + 1
+                break
+    return
+
+def calculate_cut(G, other_group, curr):
+    total = 0
+    for other_node in other_group:
+        total += G.get_edge_data(curr, other_node, {"weight": 0})["weight"]
+    return total
+
+
+def match_bipartite(G, group, final_groups, avg):
+    trial_G = nx.Graph()
+    group_map = defaultdict(list) #Mapping group nos to the no of the corresponding graph nodes in the graph.
+    group_reverse = {}
+    i = 0
+    k = 0
+    for other in final_groups:
+        length = len(other)
+        added = avg - length
+        # print(added)
+        for _ in range(added):
+            group_map[k].append(i)
+            group_reverse[i] = k
+            i += 1
+        k += 1
+    # So the mapping becomes (group_map) - {0: [0, 1, 2, 3, 4], 1: [5, 6, 7, 8]} etc.
+    for m in group_reverse.keys():
+        trial_G.add_node(m)
+    
+    #This part saves the original node values, so we can both calculate the edge weights and also do the conversion 
+    #after the bipartite matching.
+    #First one is original val to k.
+    original_mapping = {}
+    #Second one is k to original val.
+    original_reversed = {}
+    # print("AAAAAA\n")
+    # print(i)
+    # print("\n")
+    for val in group:
+        original_mapping[val] = i
+        original_reversed[i] = val
+        i+=1
+
+    #Now, we have min cut values for the node combinations.
+    for node in group:
+        #Calculate cut value with the group.
+        trial_G.add_node(original_mapping[node])
         for other in final_groups:
-                if len(other) == avg:
-                    continue
-                length = len(other)
-                added = avg - length
-                total = 0
-                for node2 in other:
-                    weight = G.get_edge_data(node, node2, 0)
-                    total += weight
-                
+            cut_val = calculate_cut(G, other, node)
+            #Add copies
+            for adding in group_map[final_groups.index(other)]:
+                trial_G.add_edge(original_mapping[node], adding, weight=cut_val)
+    #Now, we have the graph, we can do the matching.
+    # print("\n", "Group Map")
+    # print(group_map)
+    # print("\n", "Group Reverse")
+    # print(group_reverse)
+    # print("\n", "Original Mapping")
+    # print(original_mapping)
+    # print("\n", "Original Reversed")
+    # print(original_reversed)
+    
+    # print("AFTER HERE OMIT")
+    # print("\n", trial_G.nodes)
+    # print("\n", original_mapping.values())
+    matching = nx.algorithms.bipartite.minimum_weight_full_matching(trial_G, original_reversed.keys())
+    #Matching is so that node i to j is matching[i] == j.
+    # print("\n", "Matching")
+    # print(matching)
+    # print("\n")
+    val_set = set()
+    count = 0
+    for matched in matching.keys():
+        if matched in val_set:
+            continue
+        count+=1
+        # print(matched, matching[matched])
+        true_node = original_reversed[matched]
+        # print("Count", count)
+        val_set.add(matching[matched])
+        true_group = group_reverse[matching[matched]]
+        final_groups[true_group].add(true_node)
+    #This should deal with one whole group - move to the next one!
+    return final_groups
+    
+
+
+
+    
+
+
+
+            
 
             
 
@@ -259,13 +356,26 @@ def min_cut_3(G, num_teams, diff_param) -> None: #The one with simple matching
 
     
 
+def solver(G):
+    best_score = float("inf")
+    best_graph = None
+    G_copied = G.copy()
+    for teams in range(3, 25):
+        for params in np.arange(0.02, 0.1, 0.02):
+            min_cut_2(G_copied, teams, params)
+            curr_score = score(G_copied)
+            if curr_score < best_score:
+                best_score = curr_score
+                best_graph = G_copied
+    return best_graph
+
+
 
 #def min_cut_sol_attempt_2(G, num_teams, diff_param):
 #This will be similar to min weight, but now use cut values instead.
-def test(size, diff):
-    G = read_input(r'inputs/small21.in')
-    min_cut_sol(G, size, diff, False)
-    print(score(G))
+def run_2():
+    run_all(solver, 'inputs', 'outputs', overwrite=True)
+    tar('outputs', overwrite=True)
 
 
     
