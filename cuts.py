@@ -158,11 +158,16 @@ def min_cut_2(G, num_teams, diff_param) -> None:
     #Evens parameter ensures, when trying to split into groups the smallest group loop does not give its node to another group if that would put it above the largest
     #group treshold, even if this is the optimal solution.
     groups = initial_groups = find_groups(G)
+    print(initial_groups)
     num_nodes = len(G.nodes)
     #Set upper bound and lower bound based on diff_param
     avg = math.ceil(num_nodes//num_teams)
-    upper_bound_size = int(num_nodes//num_teams + math.ceil(num_nodes * diff_param))
-    lower_bound_size = int(num_nodes//num_teams - math.ceil(num_nodes * diff_param))
+    if (diff_param == 0):
+        upper_bound_size = avg
+        lower_bound_size = avg
+    else:
+        upper_bound_size = int(num_nodes//num_teams + math.ceil(num_nodes * diff_param))
+        lower_bound_size = int(num_nodes//num_teams - math.ceil(num_nodes * diff_param))
     #Jai is weird with rough_size.
     largest_group = max(groups, key=len)
     smallest_group = min(groups, key=len)
@@ -192,6 +197,7 @@ def min_cut_2(G, num_teams, diff_param) -> None:
         final_groups = match_bipartite(G, group, final_groups, upper_bound_size)
     # print("Final Groups", final_groups)
     # print("\n Initial Groups", initial_groups)
+
 
     for node in G.nodes:
         for group in final_groups:
@@ -295,16 +301,21 @@ def match_bipartite(G, group, final_groups, avg):
 
 
 def min_cut_3(G, num_teams, diff_param) -> None: #The one with simple matching
-    #Count for debugging purposes
+   #Count for debugging purposes
     count = 0
     #Evens parameter ensures, when trying to split into groups the smallest group loop does not give its node to another group if that would put it above the largest
     #group treshold, even if this is the optimal solution.
-    groups = find_groups(G)
+    groups = initial_groups = find_groups(G)
+    print(initial_groups)
     num_nodes = len(G.nodes)
     #Set upper bound and lower bound based on diff_param
     avg = math.ceil(num_nodes//num_teams)
-    upper_bound_size = num_nodes//num_teams + (num_nodes * diff_param)
-    lower_bound_size = num_nodes//num_teams - (num_nodes * diff_param)
+    if (diff_param == 0):
+        upper_bound_size = avg
+        lower_bound_size = avg
+    else:
+        upper_bound_size = int(num_nodes//num_teams + math.ceil(num_nodes * diff_param))
+        lower_bound_size = int(num_nodes//num_teams - math.ceil(num_nodes * diff_param))
     #Jai is weird with rough_size.
     largest_group = max(groups, key=len)
     smallest_group = min(groups, key=len)
@@ -315,58 +326,107 @@ def min_cut_3(G, num_teams, diff_param) -> None: #The one with simple matching
     final_groups = [set() for i in range(num_teams)]
     groups_sorted = sorted(groups, key=len)
     i = 0
+    # print("initial groups", groups_sorted)
+    # print("\n")
     while(i < num_teams):
-        curr_group = groups_sorted[0]
-        if len(final_groups[0]) == 0:
+        if len(groups_sorted) == 0 or len():
             break
+        curr_group = groups_sorted[0]
         if len(curr_group) <= avg:
             final_groups[0].update(curr_group)
             final_groups.sort(key=len)
             groups_sorted.pop(0)
         else:
-            break
-    
+            i += 1
+    # print("After initial addition:", final_groups)
+    # print("\n")
+    #Deal with the rest of the values, using bipartitie matching.
     for group in groups_sorted:
-        chosen_node = None
-        chosen_group = None
-        for node in group:
-            min_val = float("inf")
-            for other in final_groups:
-                if len(other) == avg:
-                    continue
-                total = 0
-                for node2 in other:
-                    weight = G.get_edge_data(node, node2, 0)
-                    total += weight
-                if total < min_val:
-                    chosen_node = node
-                    chosen_group = other
-        if chosen_group != None:
-            group.remove(chosen_node)
-            chosen_group.add(chosen_node)
-        else:
+        final_groups = match_bipartite(G, group, final_groups, upper_bound_size)
+    # print("Final Groups", final_groups)
+    # print("\n Initial Groups", initial_groups)
+
+
+    for node in G.nodes:
+        for group in final_groups:
+            if node in group:
+                G.nodes[node]['team'] = final_groups.index(group) + 1
+                break
+    return
+
+def shitty_input(G, num_teams):
+    groups = find_groups(G)
+    sum_val = sum([len(g) for g in groups])
+    max_group = max(groups, key=len)
+    min_group = min(groups, key=len)
+    if len(groups) > 2:
+        for node in G.nodes:
+            for group in groups:
+                if node in group:
+                    G.nodes[node]['team'] = groups.index(group) + 1
+                    break
+        return
+    while(len(min_group) < math.floor(sum_val//num_teams)):
+        if len(groups) > 2:
             break
-    
+        min_elem, min_val = None, float("inf")
+        for elem in max_group:
+            value = calculate_cut(G, min_group, elem)
+            if value < min_val:
+                min_val = value
+                min_elem = elem
+        max_group.remove(min_elem)
+        min_group.add(min_elem)
+    #When done with doing the above, divide the rest into smaller ones.
+    division = sum_val//num_teams
+    new_groups = [min_group]
+    rest = [set() for i in range(num_teams-1)]
+    for node in G.nodes:
+        if node in min_group:
+            continue
+        rest[0].add(node)
+        rest.sort(key= len)
+    new_groups.extend(rest)
+    total_cover = 0
+    for g in new_groups:
+        total_cover += len(g)
+    for node in G.nodes:
+        for group in new_groups:
+            if node in group:
+                G.nodes[node]['team'] = new_groups.index(group) + 1
+                break
+    return
+
+
         
-
-                
-
-            
-
-
-    
 
 def solver(G):
     best_score = float("inf")
     best_graph = None
     G_copied = G.copy()
-    for teams in range(3, 25):
-        for params in np.arange(0.02, 0.1, 0.02):
+    for teams in range(5, 25):
+        for params in np.arange(0.02, 0.1, 0.01):
             min_cut_2(G_copied, teams, params)
             curr_score = score(G_copied)
             if curr_score < best_score:
                 best_score = curr_score
-                best_graph = G_copied
+                best_graph = G_copied.copy()
+    for i in range(len(G.nodes)):
+        G.nodes[i]["team"] = int(best_graph.nodes[i]["team"])
+    return best_graph
+
+def solver_shitty(G):
+    best_score = float("inf")
+    best_graph = None
+    G_copied = G.copy()
+    for teams in range(2, 3):
+        shitty_input(G_copied, teams)
+        curr_score = score(G_copied)
+        if curr_score < best_score:
+            best_score = curr_score
+            best_graph = G_copied.copy()
+    for i in range(len(G.nodes)):
+        G.nodes[i]["team"] = int(best_graph.nodes[i]["team"])
     return best_graph
 
 
@@ -374,10 +434,15 @@ def solver(G):
 #def min_cut_sol_attempt_2(G, num_teams, diff_param):
 #This will be similar to min weight, but now use cut values instead.
 def run_2():
-    run_all(solver, 'inputs', 'outputs', overwrite=True)
+    run_all(solver_shitty, 'largeinputs', 'outputs', overwrite=True)
     tar('outputs', overwrite=True)
 
 
     
-    
+def test(input, num_teams, diff):
+    G = read_input(r'inputs/{}.in'.format(input))
+    shitty_input(G, num_teams)
+    validate_output(G)
+    write_output(G, r'outputs/{}.out'.format(input), overwrite=True)
 
+tar('outputs', overwrite=True)
