@@ -149,6 +149,117 @@ def min_cut_sol(G, num_teams, diff_param, evens = False):
     return
 
 
+def min_cut_2(G, num_teams, diff_param) -> None:
+    #Count for debugging purposes
+    count = 0
+    #Evens parameter ensures, when trying to split into groups the smallest group loop does not give its node to another group if that would put it above the largest
+    #group treshold, even if this is the optimal solution.
+    groups = find_groups(G)
+    num_nodes = len(G.nodes)
+    #Set upper bound and lower bound based on diff_param
+    avg = math.ceil(num_nodes//num_teams)
+    upper_bound_size = num_nodes//num_teams + (num_nodes * diff_param)
+    lower_bound_size = num_nodes//num_teams - (num_nodes * diff_param)
+    #Jai is weird with rough_size.
+    largest_group = max(groups, key=len)
+    smallest_group = min(groups, key=len)
+    largest_group_size = len(largest_group)
+    smallest_group_size = len(smallest_group)
+    #While the largest group is larger than the upper bound or the smallest group is smaller than the lower bound
+    #Outer loop for the case that the below while loop triggers a group to have size larger than largest groups size.
+    final_groups = [set() for i in range(num_teams)]
+    groups_sorted = sorted(groups, key=len)
+    i = 0
+    while(i < num_teams):
+        curr_group = groups_sorted[0]
+        if len(final_groups[0]) == 0:
+            break
+        if len(curr_group) <= avg:
+            final_groups[0].update(curr_group)
+            final_groups.sort(key=len)
+            groups_sorted.pop(0)
+        else:
+            break
+    
+    for group in groups_sorted:
+        G = nx.Graph()
+        for other in final_groups:
+                if len(other) == avg:
+                    continue
+                length = len(other)
+                added = avg - length
+                total = 0
+                for node2 in other:
+                    weight = G.get_edge_data(node, node2, 0)
+                    total += weight
+                
+
+            
+
+
+def min_cut_3(G, num_teams, diff_param) -> None: #The one with simple matching
+    #Count for debugging purposes
+    count = 0
+    #Evens parameter ensures, when trying to split into groups the smallest group loop does not give its node to another group if that would put it above the largest
+    #group treshold, even if this is the optimal solution.
+    groups = find_groups(G)
+    num_nodes = len(G.nodes)
+    #Set upper bound and lower bound based on diff_param
+    avg = math.ceil(num_nodes//num_teams)
+    upper_bound_size = num_nodes//num_teams + (num_nodes * diff_param)
+    lower_bound_size = num_nodes//num_teams - (num_nodes * diff_param)
+    #Jai is weird with rough_size.
+    largest_group = max(groups, key=len)
+    smallest_group = min(groups, key=len)
+    largest_group_size = len(largest_group)
+    smallest_group_size = len(smallest_group)
+    #While the largest group is larger than the upper bound or the smallest group is smaller than the lower bound
+    #Outer loop for the case that the below while loop triggers a group to have size larger than largest groups size.
+    final_groups = [set() for i in range(num_teams)]
+    groups_sorted = sorted(groups, key=len)
+    i = 0
+    while(i < num_teams):
+        curr_group = groups_sorted[0]
+        if len(final_groups[0]) == 0:
+            break
+        if len(curr_group) <= avg:
+            final_groups[0].update(curr_group)
+            final_groups.sort(key=len)
+            groups_sorted.pop(0)
+        else:
+            break
+    
+    for group in groups_sorted:
+        chosen_node = None
+        chosen_group = None
+        for node in group:
+            min_val = float("inf")
+            for other in final_groups:
+                if len(other) == avg:
+                    continue
+                total = 0
+                for node2 in other:
+                    weight = G.get_edge_data(node, node2, 0)
+                    total += weight
+                if total < min_val:
+                    chosen_node = node
+                    chosen_group = other
+        if chosen_group != None:
+            group.remove(chosen_node)
+            chosen_group.add(chosen_node)
+        else:
+            break
+    
+        
+
+                
+
+            
+
+
+    
+
+
 #def min_cut_sol_attempt_2(G, num_teams, diff_param):
 #This will be similar to min weight, but now use cut values instead.
 def test(size, diff):
