@@ -157,6 +157,7 @@ def min_cut_2(G, num_teams, diff_param) -> None:
     #Evens parameter ensures, when trying to split into groups the smallest group loop does not give its node to another group if that would put it above the largest
     #group treshold, even if this is the optimal solution.
     groups = initial_groups = find_groups(G)
+    print(initial_groups)
     num_nodes = len(G.nodes)
     #Set upper bound and lower bound based on diff_param
     avg = math.ceil(num_nodes//num_teams)
@@ -456,7 +457,7 @@ def solver_shitty(G):
 #def min_cut_sol_attempt_2(G, num_teams, diff_param):
 #This will be similar to min weight, but now use cut values instead.
 def run_2():
-    run_all(solver, 'inputs', 'outputs', overwrite=True)
+    run_all(solver, 'smallinputs', 'outputs', overwrite=True)
     tar('outputs', overwrite=True)
 
 
@@ -468,4 +469,8 @@ def test(input, num_teams, diff):
     print(score(G))
     write_output(G, r'outputs/{}.out'.format(input), overwrite=True)
 
+<<<<<<< HEAD
 tar('outputs', overwrite=True)
+=======
+tar('outputs', overwrite=True)
+>>>>>>> d631cfcfae30bb288ca2f65a75db42c6c255a17b
