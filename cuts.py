@@ -15,18 +15,21 @@ from collections import defaultdict
 def find_groups(G):
     groups = []
     visited = set()
-    for node in G.nodes:
-        if node not in visited:
-            group = set()
-            group.add(node)
-            visited.add(node)
-            for node2 in G.nodes:
-                if node2 not in visited and not G.has_edge(node, node2):
-                    group.add(node2)
-                    visited.add(node2)
-            groups.append(group)
-    return groups
-
+    coloring = nx.greedy_color(G)
+    group_nos = set()
+    for val in coloring.values():
+        if val in group_nos:
+            continue
+        else:
+            group_nos.add(val)
+    group_dict = defaultdict(list)
+    for no in coloring:
+        if not(coloring[no] in group_dict):
+            group_dict[coloring[no]] = [no]
+        else:
+            group_dict[coloring[no]].append(no)
+    sets = [set(arr) for arr in group_dict.values()]
+    return sets
 
 """
 This is an attempt to solving the problem with a min cut approach. The inputs to the function are:
@@ -356,7 +359,31 @@ def min_cut_3(G, num_teams, diff_param) -> None: #The one with simple matching
 
 def shitty_input(G, num_teams):
     groups = find_groups(G)
+    print(groups)
+    print("Group count", len(groups), "\n\n")
+    print(G.edges)
+    for node in groups[0]:
+        for node2 in groups[0]:
+            if node == node2:
+                continue
+            if (G.get_edge_data(node, node2, {"weight": 0})['weight']) != 0:
+                print("danger")
+                print(G.get_edge_data(list(groups[0])[i], list(groups[0])[node], {"weight": 0})['weight'])
     sum_val = sum([len(g) for g in groups])
+    if len(groups) == 1:
+        #Just split all to groups
+        new_groups = []
+        rest = [set() for i in range(num_teams)]
+        for node in G.nodes:
+            rest[0].add(node)
+            rest.sort(key= len)
+        new_groups.extend(rest)
+        for node in G.nodes:
+            for group in new_groups:
+                if node in group:
+                    G.nodes[node]['team'] = new_groups.index(group) + 1
+                    break
+        return
     max_group = max(groups, key=len)
     min_group = min(groups, key=len)
     if len(groups) > 2:
@@ -419,8 +446,8 @@ def solver_shitty(G):
     best_score = float("inf")
     best_graph = None
     G_copied = G.copy()
-    for teams in range(2, 3):
-        shitty_input(G_copied, teams)
+    for teams in range(2, 20):
+        min_cut_2(G_copied, teams, 0.01)
         curr_score = score(G_copied)
         if curr_score < best_score:
             best_score = curr_score
@@ -434,15 +461,16 @@ def solver_shitty(G):
 #def min_cut_sol_attempt_2(G, num_teams, diff_param):
 #This will be similar to min weight, but now use cut values instead.
 def run_2():
-    run_all(solver_shitty, 'largeinputs', 'outputs', overwrite=True)
+    run_all(solver, 'smallinputs', 'outputs', overwrite=True)
     tar('outputs', overwrite=True)
 
 
     
 def test(input, num_teams, diff):
     G = read_input(r'inputs/{}.in'.format(input))
-    shitty_input(G, num_teams)
+    min_cut_2(G, num_teams, 0.05)
     validate_output(G)
+    print(score(G))
     write_output(G, r'outputs/{}.out'.format(input), overwrite=True)
 
 tar('outputs', overwrite=True)
