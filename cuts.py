@@ -60,8 +60,6 @@ def min_cut_sol(G, num_teams, diff_param, evens = False):
         count+=1
         if count % 1000 == 0:
             old_group = groups
-            print(groups)
-            print("\n\n")
         if old_group == groups:
             break
         if largest_group_size > upper_bound_size:
@@ -145,13 +143,11 @@ def min_cut_sol(G, num_teams, diff_param, evens = False):
                     groups.remove(smallest_group)
                     smallest_group = min(groups, key=len)
                     smallest_group_size = len(smallest_group)
-    print(groups)
     for node in G.nodes:
         for group in groups:
             if node in group:
                 G.nodes[node]['team'] = groups.index(group)
                 break
-    print(G)
     return
 
 
@@ -473,4 +469,8 @@ def test(input, num_teams, diff):
     print(score(G))
     write_output(G, r'outputs/{}.out'.format(input), overwrite=True)
 
+<<<<<<< HEAD
 tar('outputs', overwrite=True)
+=======
+tar('outputs', overwrite=True)
+>>>>>>> d631cfcfae30bb288ca2f65a75db42c6c255a17b
